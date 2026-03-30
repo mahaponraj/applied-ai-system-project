@@ -33,6 +33,7 @@ class Task:
     priority: int  # 1-5 scale
     description: str
     frequency: str = "daily"
+    last_completed: Optional[date] = None  # tracks when task was last done
     
     def get_duration(self) -> int:
         """Return time needed for this task in minutes."""
@@ -54,6 +55,8 @@ class Owner:
         self.name = name
         self.available_time = available_time  # in minutes
         self.preferences: Dict[str, any] = {}
+        self.current_plan: Optional['DailyPlan'] = None
+        self.plan_history: List['DailyPlan'] = []
     
     def update_available_time(self, time: int) -> None:
         """Adjust how much time the owner has available today."""
@@ -67,14 +70,18 @@ class Owner:
 class DailyPlan:
     """Represents the schedule for one day."""
     
-    def __init__(self, plan_date: date):
+    def __init__(self, plan_date: date, owner: 'Owner', pet: 'Pet'):
         self.date = plan_date
+        self.owner = owner
+        self.pet = pet
         self.scheduled_tasks: List[Task] = []
+        self.completed_tasks: List[Task] = []
+        self.skipped_tasks: List[Task] = []
         self.total_time = 0  # in minutes
         self.reasoning = ""
     
-    def add_task_to_schedule(self, task: Task, time_slot: int) -> None:
-        """Insert a task at a specific time."""
+    def add_task_to_schedule(self, task: Task, start_time_minutes: int) -> None:
+        """Insert a task at a specific time (minutes from midnight, e.g., 480 = 8am)."""
         pass
     
     def get_plan(self) -> List[Task]:
@@ -112,4 +119,10 @@ class Scheduler:
     
     def fit_tasks_in_time(self, tasks: List[Task], available_time: int) -> List[Task]:
         """Determine which tasks fit within available time."""
+        pass
+    
+    def generate_ranked_and_fitted_tasks(self) -> List[Task]:
+        """Rank tasks by priority, then fit as many as possible into available time.
+        Call this once instead of separately calling rank_tasks() and fit_tasks_in_time().
+        """
         pass
