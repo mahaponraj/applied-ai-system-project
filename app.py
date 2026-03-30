@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from pawpal_system import Owner, Pet, Task, Scheduler
 from datetime import date
 
@@ -8,6 +9,84 @@ st.title("🐾 PawPal+")
 st.markdown("**Your AI Pet Care Planning Assistant**")
 
 st.divider()
+
+# ============================================================
+# Helper Functions
+# ============================================================
+
+def build_task_dataframe(tasks, owner, scheduler):
+    """Convert tasks to a Pandas DataFrame for professional display."""
+    data = []
+    for task in tasks:
+        # Find pet name
+        pet_name = None
+        for pet in owner.get_pets():
+            if task in pet.get_tasks():
+                pet_name = pet.name
+                break
+        
+        # Get time categorization from scheduler
+        time_category = scheduler.categorize_task_time(task)
+        
+        # Determine mandatory status
+        is_mandatory = task.is_mandatory()
+        mandatory_label = "✓ Mandatory" if is_mandatory else "○ Optional"
+        
+        data.append({
+            "Pet": pet_name or "Unknown",
+            "Task": task.task_type,
+            "Duration (min)": task.duration,
+            "Priority ⭐": task.priority,
+            "Frequency": task.frequency,
+            "Time": time_category.capitalize(),
+            "Status": mandatory_label
+        })
+    
+    return pd.DataFrame(data)
+
+
+def display_conflict_warnings(plan, scheduler):
+    """Display conflict warnings in a user-friendly format."""
+    if not plan.has_conflicts():
+        st.success("✓ No scheduling conflicts detected!")
+        return
+    
+    warnings = plan.get_warnings()
+    
+    st.warning("⚠️ **Scheduling Conflicts Detected!**")
+    st.markdown("""
+    The scheduler has identified potential conflicts in your schedule. 
+    Review the suggestions below and consider rescheduling tasks.
+    """)
+    
+    # Organize warnings by type
+    same_pet_conflicts = [w for w in warnings if "CONFLICT" in w or "SAME-PET" in w]
+    cross_pet_conflicts = [w for w in warnings if "CROSS-PET" in w]
+    overlap_conflicts = [w for w in warnings if "OVERLAP" in w]
+    
+    if same_pet_conflicts:
+        st.error("🔴 **Same-Pet Conflicts** (same pet, same time)")
+        for warning in same_pet_conflicts:
+            col1, col2 = st.columns([0.8, 0.2])
+            with col1:
+                st.write(f"• {warning}")
+            with col2:
+                st.caption("⏰ Reschedule one task")
+    
+    if cross_pet_conflicts:
+        st.error("🔴 **Cross-Pet Conflicts** (owner unavailable)")
+        for warning in cross_pet_conflicts:
+            col1, col2 = st.columns([0.8, 0.2])
+            with col1:
+                st.write(f"• {warning}")
+            with col2:
+                st.caption("⏰ Stagger times")
+    
+    if overlap_conflicts:
+        st.warning("🟡 **Task Overlaps** (partial time collision)")
+        for warning in overlap_conflicts:
+            st.write(f"• {warning}")
+
 
 # ============================================================
 # Initialize Session State - Persistent Storage
@@ -79,12 +158,19 @@ if st.session_state.owner:
         st.session_state.owner.add_pet(new_pet)
         st.success(f"✓ Pet '{pet_name}' added!")
     
-    # Display current pets
+    # Display current pets in a table
     if st.session_state.owner.get_pets():
-        st.write("**Registered Pets:**")
+        st.write("**📌 Registered Pets:**")
+        pets_data = []
         for pet in st.session_state.owner.get_pets():
             pet_info = pet.get_info()
-            st.write(f"• **{pet_info['name']}** ({pet_info['species']}, age {pet_info['age']}) - {pet_info['task_count']} tasks")
+            pets_data.append({
+                "Pet Name": pet_info['name'],
+                "Species": pet_info['species'],
+                "Age": pet_info['age'],
+                "Tasks": pet_info['task_count']
+            })
+        st.dataframe(pd.DataFrame(pets_data), use_container_width=True, hide_index=True)
     else:
         st.info("No pets registered yet. Add one above.")
     
@@ -163,19 +249,23 @@ if st.session_state.owner:
                 selected_pet.add_task(new_task)
                 st.success(f"✓ Task '{task_type}' added to {selected_pet_name}!")
         
-        # Display tasks for each pet
-        st.write("**Current Tasks:**")
+        # Display tasks for each pet in ranked order using Scheduler.rank_tasks()
+        st.write("**📌 Current Tasks (sorted by priority):**")
+        
         for pet in st.session_state.owner.get_pets():
             if pet.get_tasks():
-                st.write(f"\n**{pet.name}:**")
-                for task in pet.get_tasks():
-                    st.write(
-                        f"  • {task.task_type} ({task.duration}min, priority ⭐×{task.priority}) - {task.description}"
-                    )
+                st.write(f"**{pet.name}:**")
+                
+                # Rank tasks using Scheduler method
+                ranked_tasks = st.session_state.scheduler.rank_tasks(pet.get_tasks())
+                
+                # Build dataframe for this pet
+                pet_tasks_df = build_task_dataframe(ranked_tasks, st.session_state.owner, st.session_state.scheduler)
+                st.dataframe(pet_tasks_df, use_container_width=True, hide_index=True)
             else:
-                st.write(f"  _{pet.name} has no tasks yet_")
+                st.write(f"**{pet.name}:** _(no tasks yet)_")
     else:
-        st.warning("Add at least one pet before creating tasks.")
+        st.warning("⚠️ Add at least one pet before creating tasks.")
     
     st.divider()
     
@@ -196,20 +286,38 @@ if st.session_state.owner:
         st.write(f"**📅 Schedule for {plan.date}**")
         
         # Display schedule stats
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Tasks Scheduled", len(plan.get_plan()))
         with col2:
             st.metric("Total Time", f"{plan.total_time} min")
         with col3:
+            st.metric("Available", f"{st.session_state.owner.available_time} min")
+        with col4:
             feasible_status = "✓ Feasible" if plan.is_feasible() else "✗ Exceeds Time"
             st.metric("Status", feasible_status)
         
         st.divider()
         
-        # Display scheduled tasks
+        # ============================================================
+        # Display Conflict Warnings (PROMINENT)
+        # ============================================================
+        display_conflict_warnings(plan, st.session_state.scheduler)
+        
+        st.divider()
+        
+        # Display scheduled tasks in ranked order
         if plan.get_plan():
             st.write("**📋 Scheduled Tasks:**")
+            
+            # Build dataframe for all scheduled tasks (already in order from generate_daily_plan)
+            schedule_df = build_task_dataframe(plan.get_plan(), st.session_state.owner, st.session_state.scheduler)
+            st.dataframe(schedule_df, use_container_width=True, hide_index=True)
+            
+            st.divider()
+            
+            # Display individual task details with completion option
+            st.write("**✏️ Task Details & Actions:**")
             for idx, task in enumerate(plan.get_plan(), 1):
                 # Find which pet this task belongs to
                 pet_name = None
@@ -223,17 +331,23 @@ if st.session_state.owner:
                     with col1:
                         st.write(f"**Pet:** {pet_name}")
                         st.write(f"**Duration:** {task.duration} minutes")
-                        st.write(f"**Priority:** ⭐ × {task.priority}")
+                        st.write(f"**Priority:** {'⭐' * task.priority}")
                     with col2:
                         st.write(f"**Frequency:** {task.frequency}")
+                        st.write(f"**Status:** {'✓ Mandatory' if task.is_mandatory() else '○ Optional'}")
+                    
+                    if task.description:
                         st.write(f"**Description:** {task.description}")
                     
                     # Button to mark as complete
                     if st.button(f"✅ Mark Complete", key=f"complete_{idx}"):
                         plan.mark_task_completed(task)
                         st.success(f"✓ {task.task_type} marked as complete!")
+                        if plan.next_occurrences:
+                            st.info(f"📅 Next occurrence created for {plan.next_occurrences[-1].task_type}")
         else:
-            st.warning("No tasks fit in the available time!")
+            st.warning("🚨 No tasks fit in the available time!")
+            st.info("💡 Try increasing available time or reducing task duration/priority.")
         
         st.divider()
         
