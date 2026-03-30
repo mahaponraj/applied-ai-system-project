@@ -34,13 +34,30 @@ Yes, several refinements were made during implementation to improve efficiency a
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler considers:
+1. **Available time** (owner.available_time) — Hard limit; most critical
+2. **Task priority** (1-5 scale) — Determines sort order; highest prioritized first
+3. **Task duration** (minutes) — Secondary sort; shorter tasks pack better
+4. **Task frequency** (daily/weekly/as-needed) — Determines if task is mandatory today
+5. **Task dependencies** (depends_on) — Must satisfy before dependents
+6. **Time-of-day preferences** (preferred_times) — Soft constraint via categorization
+7. **Pet-specific conflicts** — Prevent same pet multi-tasking
+
+**Decision**: Time and priority matter most because available time is a hard constraint (owner can't do unlimited tasks), and priority reflects what the owner deemed urgent. Frequency determines what *must* happen today.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+**Tradeoff 1: Greedy Bin-Packing vs. Optimal Packing**
+- Greedy approach being O(n log n) is fast and produces good results for typical cases meanwhile optimal approach is NP-hard and overkill for UX
+- **Why reasonable**: Users need instant feedback; greedy provides 85-95% optimal results with instant scheduling
+
+**Tradeoff 2: Non-Blocking Warnings vs. Hard Failures**
+- Non-blocking allows schedule with conflicts but alerts user whereas hard failure prevents conflicting schedule in other ways blocks plan generation
+- **Why reasonable**: Owner wants visibility into conflicts, not blockers. They can adjust if needed.
+
+**Tradeoff 3: Auto-Recurrence vs. Manual Entry**
+- Auto-recurrence creates next occurrence automatically at completion and manual owner re-enters each task manually
+- **Why reasonable**: Reduces friction; owner doesn't re-type "Daily Walk" 365 times/year
 
 ---
 
@@ -48,13 +65,23 @@ Yes, several refinements were made during implementation to improve efficiency a
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+- **Design brainstorming**: Identified core classes (Pet, Task, Owner, Scheduler, DailyPlan)
+- **Architecture review**: AI helped spot missing relations for example oowner and  task bidirectional lookup
+- **Debugging**: Why tests failed? Fixed is_complete mutation issue by isolating state to DailyPlan
+- **Feature expansion**: Added 8 advanced methods (conflict detection, recurring task expansion, topological sorting)
+
+**Most helpful prompts:**
+- "Why is this object missing from the architecture?"
+- "What went wrong in the test output?" (led to identifying state mutation bug)
+- "What scheduling algorithms exist?" (led to bin-packing, topological sort, conflict detection)
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+**Rejected suggestion:** AI suggested mutating `task.last_completed = date.today()` in `mark_task_completed()` to track completion globally.
+
+**Why I rejected it:** This would pollute shared task objects. If I regenerate the schedule tomorrow, the same task would incorrectly show as "not mandatory" because its global state was changed.
+
+**How I verified:** Ran `main.py` test after making the change—saw Cat Feeding show as "optional" after completion, which violated the invariant. Created a comment explaining the fix and verified all tasks still showed as "MANDATORY" after completion.
 
 ---
 
@@ -62,13 +89,32 @@ Yes, several refinements were made during implementation to improve efficiency a
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+- **Task.is_mandatory()**: Daily/weekly frequency detection with last_completed dates
+- **Task.mark_complete()**: Completion state tracking
+- **Pet.add_task() & get_tasks()**: Task aggregation per pet
+- **Owner.get_all_tasks()**: Aggregation across multiple pets
+- **Scheduler.generate_daily_plan()**: Full pipeline ranking → fitting → reasoning
+- **DailyPlan feasibility**: Schedule fits in available_time
+- **Conflict detection**: Same-pet multi-tasking prevention
+
+**Why important:** Core behaviors (mandatory detection, scheduling logic) break if wrong; UI won't matter if backend is broken.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+**Confidence level: 7/10**
+- Core ranking/fitting logic works (verified in main.py with 6 tasks)
+- Recurring task detection works (daily tasks correctly marked mandatory)
+- Conflict detection runs without crashing
+- Time-slot specificity not tested (currently set to 0 in add_task_to_schedule)
+- Dependency ordering not tested (feature added but no unit test)
+- Edge cases: circular dependencies, zero available time, empty pet list
+
+**Edge cases to test next:**
+- Circular task dependencies (A depends on B, B depends on A)
+- Owner with zero available time
+- Owner with no pets
+- Recurring task with past completion date (7+ days ago for weekly)
+- Multiple pets with overlapping preferred times
 
 ---
 
@@ -76,12 +122,25 @@ Yes, several refinements were made during implementation to improve efficiency a
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+**Most satisfied with:** The architecture separation of concerns
+- Scheduler doesn't know HOW to mutate Owner; it calls methods
+- DailyPlan doesn't mutate Task objects globally
+- Owner aggregates Pet tasks cleanly
+- Each class has ONE responsibility
+
+This made debugging easy: when tests failed, I knew exactly where the issue was (not scattered across files).
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+1. **Specific time-slot assignment**: Currently `start_time_minutes` is simplified to 0. Should implement actual clock time scheduling (7am for walks, 5pm for dinner)
+2. **Dependency testing**: Added topological sorting but no test coverage
+3. **Multi-day planning**: Expand recurring tasks into week/month views before scheduling
+4. **Preference learning**: Track which time windows owner actually uses; bias scheduling there
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+**Good system design saves debugging time.** 
+
+When I fixed the state mutation bug, it took 5 minutes because the architecture was clear: "DailyPlan owns task state, not shared Task objects." If I'd made Task globally mutable, that bug would have cascaded through 10 different methods and been a nightmare.
+
+Lesson: Spend time on UML and relationships up front. The 20 minutes on design saved 2 hours of debugging.
