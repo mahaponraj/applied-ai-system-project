@@ -1,6 +1,7 @@
 # PawPal+ Project Reflection
 
 ## 1. System Design
+The three core actions I have identified are adding pet info, creating tasks needed to be done, and display today's tasks.
 
 **a. Initial design**
 
