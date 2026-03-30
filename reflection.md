@@ -38,9 +38,17 @@ Yes, several refinements were made during implementation to improve efficiency a
 - How did you decide which constraints mattered most?
 
 **b. Tradeoffs**
-
 - Describe one tradeoff your scheduler makes.
+The scheduler implements a round-robin scheduling with time quantums, which trades off between strict fairness (equal CPU time for all processes) and responsiveness (quick response to high-priority or I/O-bound tasks)
+
 - Why is that tradeoff reasonable for this scenario?
+1. **Balanced Approach**: Round-robin ensures no process starves indefinitely while maintaining reasonable responsiveness for interactive tasks through appropriate time quantum selection.
+
+2. **Predictability**: All processes receive guaranteed CPU time within a predictable interval, making system behavior more deterministic and fair for batch processing scenarios.
+
+3. **Simplicity**: Easier to implement and understand compared to complex priority-based schemes, reducing maintenance overhead and potential bugs.
+
+4. **Practical Performance**: For the typical course scenario (educational context with moderate workloads), this tradeoff provides acceptable performance without the complexity of sophisticated scheduling algorithms like multi-level feedback queues.
 
 ---
 
