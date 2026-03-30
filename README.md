@@ -438,3 +438,6 @@ The comprehensive test suite includes **22 tests** organized across 5 core testi
 - ✅ Validates mandatory task filtering across all frequency types
 
 The system is **production-ready** for the PawPal+ scheduler with high confidence in its reliability and correctness.
+
+## Demo
+![PawPal App](image.png)
