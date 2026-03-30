@@ -6,6 +6,10 @@ The three core actions I have identified are adding pet info, creating tasks nee
 **a. Initial design**
 
 - Briefly describe your initial UML design.
+
+initially it uses five classes. Pet and Owner classes are significant that are actually data handling entities defining Pet being cared by the Owner who's the caretaker. Scheduler class is the core logic layer where it has functions to add/edit tasks, priortizes according to owner availability. Dailyplan is the output object that contains resulting schedule and Task is a single activity to be done.
+
+
 - What classes did you include, and what responsibilities did you assign to each?
 
 **b. Design changes**
