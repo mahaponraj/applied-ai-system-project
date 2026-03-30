@@ -1,16 +1,32 @@
 # PawPal+ Project Reflection
 
 ## 1. System Design
+The three core actions I have identified are adding pet info, creating tasks needed to be done, and display today's tasks.
 
 **a. Initial design**
 
 - Briefly describe your initial UML design.
+
+initially it uses five classes. Pet and Owner classes are significant that are actually data handling entities defining Pet being cared by the Owner who's the caretaker. Scheduler class is the core logic layer where it has functions to add/edit tasks, priortizes according to owner availability. Dailyplan is the output object that contains resulting schedule and Task is a single activity to be done.
+
+
 - What classes did you include, and what responsibilities did you assign to each?
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+Yes, several refinements were made during implementation to improve efficiency and prevent logic bottlenecks:
+
+1. **Added `last_completed` to Task** — The frequency field alone wasn't enough to determine if a task should run today. By tracking when a task was last completed, `is_mandatory()` can now properly check if a weekly task is overdue or if a daily task was already done today.
+
+2. **Added plan tracking to Owner** — Owner now maintains `current_plan` (today's schedule) and `plan_history` (all past plans). This allows users to view and review their schedule history, which was missing from the initial design.
+
+3. **Added owner and pet context to DailyPlan** — DailyPlan now stores references to its Owner and Pet. This ensures the schedule knows which pet/owner it belongs to, which is critical for logging, context, and preventing orphaned plans.
+
+4. **Added task status tracking to DailyPlan** — Added `completed_tasks` and `skipped_tasks` lists alongside `scheduled_tasks`. This allows the app to track partial completion or changes to the plan throughout the day.
+
+5. **Clarified time_slot parameter** — Changed vague parameter name `time_slot: int` to `start_time_minutes: int` with clear documentation: "minutes from midnight, e.g., 480 = 8am". This prevents confusion and makes the API less error-prone.
+
+6. **Combined rank+fit logic into `generate_ranked_and_fitted_tasks()`** — The original design had separate `rank_tasks()` and `fit_tasks_in_time()` methods. These are almost always used together in sequence, creating a bottleneck where someone could call them independently or out of order. The new combined method ensures proper sequencing and reduces redundant computation.
 
 ---
 
