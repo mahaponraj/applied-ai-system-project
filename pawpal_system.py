@@ -106,9 +106,12 @@ class Pet:
         if need not in self.special_needs:
             self.special_needs.append(need)
     
-    def add_task(self, task: Task) -> None:
-        """Add a task to this pet's task list."""
+    def add_task(self, task: Task) -> bool:
+        """Add a task to this pet's task list. Returns False if a task with the same type already exists."""
+        if any(t.task_type.lower() == task.task_type.lower() for t in self.tasks):
+            return False
         self.tasks.append(task)
+        return True
     
     def get_tasks(self) -> List[Task]:
         """Return all tasks for this pet."""

@@ -246,8 +246,10 @@ if st.session_state.owner:
                 )
                 
                 # Add task to pet
-                selected_pet.add_task(new_task)
-                st.success(f"✓ Task '{task_type}' added to {selected_pet_name}!")
+                if selected_pet.add_task(new_task):
+                    st.success(f"✓ Task '{task_type}' added to {selected_pet_name}!")
+                else:
+                    st.warning(f"⚠️ '{task_type}' already exists for {selected_pet_name}. Each pet can only have one task of the same type.")
         
         # Display tasks for each pet in ranked order using Scheduler.rank_tasks()
         st.write("**📌 Current Tasks (sorted by priority):**")
