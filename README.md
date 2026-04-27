@@ -8,6 +8,9 @@ PawPal+ helps busy pet owners create optimized daily care schedules across multi
 
 ## Original Project Goals (PawPal — Module 2)
 
+
+Loom Link: https://www.loom.com/share/148ade1f36524d689d990fb911105cfe 
+
 The original PawPal system was built to solve a real scheduling challenge: pet owners managing multiple animals and dozens of recurring tasks with limited time. It introduced priority-based task ranking, greedy bin-packing to maximize task completion, and conflict detection to flag overlapping time slots. The system automated recurring task generation using Python's `timedelta` so owners never had to manually re-enter daily or weekly tasks.
 
 ---
