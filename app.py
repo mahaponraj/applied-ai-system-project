@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from pawpal_system import Owner, Pet, Task, Scheduler
+from pawpal_system import Owner, Pet, Task, Scheduler, RAGIntegration, ReliabilityValidator
 from datetime import date
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="wide")
@@ -351,10 +351,51 @@ if st.session_state.owner:
         
         st.divider()
         
-        # Display reasoning
-        st.write("**💡 AI Reasoning:**")
-        st.info(plan.get_reasoning())
+        # ============================================================
+        # SECTION 5: AI-Powered RAG Insights & Reliability
+        # ============================================================
+        st.subheader("🤖 AI Insights & Reliability Check")
         
+        # Display RAG-powered pet care insights
+        if plan.get_reasoning():
+            with st.expander("📚 View AI Pet Care Insights", expanded=True):
+                st.markdown(plan.get_reasoning())
+        
+        # Run and display reliability validation
+        if st.session_state.scheduler and st.session_state.scheduler.validator:
+            validation_results = st.session_state.scheduler.validator.validate_plan(plan)
+            summary = st.session_state.scheduler.validator.get_validation_summary(validation_results)
+            
+            # Display validation summary
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Checks", summary['total_checks'])
+            with col2:
+                st.metric("✅ Passed", summary['passed'])
+            with col3:
+                st.metric("⚠️ Warnings", summary['warnings'])
+            with col4:
+                st.metric("❌ Errors", summary['errors'])
+            
+            # Show detailed validation results
+            if validation_results:
+                st.write("**🔍 Validation Details:**")
+                for result in validation_results:
+                    if result.severity == "error":
+                        st.error(f"❌ **{result.category.upper()}:** {result.message}")
+                    elif result.severity == "warning":
+                        st.warning(f"⚠️ **{result.category.upper()}:** {result.message}")
+                    else:
+                        st.info(f"ℹ️ **{result.category.upper()}:** {result.message}")
+            
+            # Overall status
+            if summary['errors'] == 0 and summary['failed'] == 0:
+                st.success("✅ **Overall: All reliability checks passed!**")
+            else:
+                st.error("❌ **Overall: Some reliability checks failed. Review the details above.**")
+        
+        st.divider()
+
         # Display completion summary
         if plan.completed_tasks or plan.skipped_tasks:
             col1, col2 = st.columns(2)
